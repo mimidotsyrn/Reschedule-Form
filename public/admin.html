@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reschedule Request Helper — Provider Admin</title>
+<style>
+  :root {
+    --ink: #1f2a37; --muted: #5b6b7b; --accent: #1e6f5c; --accent-soft: #e7f3ef;
+    --line: #dde4ea; --bg: #f6f8fa; --card: #ffffff; --danger: #a33a3a;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: var(--bg); color: var(--ink); line-height: 1.55; }
+  .wrap { max-width: 860px; margin: 0 auto; padding: 24px 16px 48px; }
+  header.app-header { margin-bottom: 24px; display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
+  header.app-header h1 { font-size: 1.5rem; font-weight: 600; }
+  header.app-header p { color: var(--muted); font-size: 0.95rem; margin-top: 4px; }
+  .cust-link { font-size: 0.88rem; color: var(--accent); text-decoration: none; font-weight: 600; white-space: nowrap; }
+  section.card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 20px; margin-bottom: 20px; }
+  section.card h2 { font-size: 1.15rem; font-weight: 600; margin-bottom: 6px; }
+  section.card > p.purpose { color: var(--muted); font-size: 0.92rem; margin-bottom: 16px; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.92rem; }
+  th { text-align: left; color: var(--muted); font-weight: 600; padding: 8px 10px; border-bottom: 2px solid var(--line); }
+  td { padding: 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  .status-chip { display: inline-block; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
+  .chip-pending { background: #fdf3e2; color: #8a5a12; }
+  .chip-approved { background: var(--accent-soft); color: var(--accent); }
+  .chip-rejected { background: #f7e3e3; color: var(--danger); }
+  .chip-confirmed { background: var(--accent-soft); color: var(--accent); }
+  .chip-rescheduled { background: #fdf3e2; color: #8a5a12; }
+  .chip-yes { background: var(--accent-soft); color: var(--accent); }
+  .chip-no { background: #f7e3e3; color: var(--danger); }
+  .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .btn { display: inline-block; border: none; border-radius: 8px; padding: 8px 14px; font-size: 0.85rem; font-weight: 600; font-family: inherit; cursor: pointer; }
+  .btn-approve { background: var(--accent); color: #fff; }
+  .btn-approve:hover { background: #175a4a; }
+  .btn-reject { background: #fff; color: var(--danger); border: 1px solid var(--danger); }
+  .btn-reject:hover { background: #f7e3e3; }
+  .muted { color: var(--muted); font-size: 0.85rem; }
+  .empty { color: var(--muted); padding: 16px 0; }
+  @media (max-width: 640px) {
+    .wrap { padding: 16px 12px 40px; }
+    section.card { padding: 16px; overflow-x: auto; }
+    table { min-width: 560px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="app-header">
+    <div>
+      <h1>Provider Admin</h1>
+      <p>All bookings, RSVPs and pending reschedule requests from your customers.</p>
+    </div>
+    <a class="cust-link" href="/">← Customer page</a>
+  </header>
+
+  <section class="card" id="card-bookings">
+    <h2>All Bookings</h2>
+    <p class="purpose">Every registered customer and their current class date.</p>
+    <table id="bookings-table">
+      <thead><tr><th>Customer</th><th>Class</th><th>Current date</th><th>Status</th></tr></thead>
+      <tbody></tbody>
+    </table>
+    <div class="empty" id="bookings-empty" hidden>Loading…</div>
+  </section>
+
+  <section class="card" id="card-reschedules">
+    <h2>Reschedule Requests</h2>
+    <p class="purpose">Approve to move the booking to the new date, or reject to keep it.</p>
+    <table id="resched-table">
+      <thead><tr><th>Customer</th><th>Class</th><th>Original date</th><th>Requested date</th><th>Status</th><th>Decision</th></tr></thead>
+      <tbody></tbody>
+    </table>
+    <div class="empty" id="resched-empty" hidden>No reschedule requests yet.</div>
+  </section>
+
+  <section class="card" id="card-rsvps">
+    <h2>Latest RSVPs</h2>
+    <p class="purpose">Most recent attendance response per submission.</p>
+    <table id="rsvp-table">
+      <thead><tr><th>Customer</th><th>Response</th><th>Note</th><th>When</th></tr></thead>
+      <tbody></tbody>
+    </table>
+    <div class="empty" id="rsvp-empty" hidden>No RSVPs yet.</div>
+  </section>
+
+</div>
+
+<script>
+(function () {
+  var months = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+  var days = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+  function formatDate(iso) {
+    if (!iso) return "—";
+    var p = iso.split("-");
+    var d = new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2]));
+    return days[d.getDay()] + ", " + d.getDate() + " " + months[d.getMonth()] + " " + d.getFullYear();
+  }
+  function chip(status) {
+    return '<span class="status-chip chip-' + status + '">' + status + '</span>';
+  }
+  function esc(s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+      return { "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c];
+    });
+  }
+
+  function loadBookings() {
+    fetch("/api/bookings").then(function (r) { return r.json(); }).then(function (rows) {
+      var tb = document.querySelector("#bookings-table tbody");
+      tb.innerHTML = rows.map(function (b) {
+        return "<tr><td>" + esc(b.customer_name) + "<div class='muted'>" + esc(b.customer_email) + "</div></td>"
+          + "<td>" + esc(b.class_name) + "<div class='muted'>" + esc(b.location) + "</div></td>"
+          + "<td>" + formatDate(b.class_date) + "</td>"
+          + "<td>" + chip(b.status) + "</td></tr>";
+      }).join("");
+      document.getElementById("bookings-empty").hidden = rows.length > 0;
+    });
+  }
+
+  function loadReschedules() {
+    fetch("/api/reschedule-requests").then(function (r) { return r.json(); }).then(function (rows) {
+      var tb = document.querySelector("#resched-table tbody");
+      tb.innerHTML = rows.map(function (r) {
+        var decision;
+        if (r.status === "pending") {
+          decision = '<div class="actions">'
+            + '<button class="btn btn-approve" data-id="' + r.id + '" data-new-date="' + esc(r.new_date) + '">Approve</button>'
+            + '<button class="btn btn-reject" data-id="' + r.id + '">Reject</button>'
+            + '</div>';
+        } else {
+          decision = '<span class="muted">Decided</span>';
+        }
+        return "<tr><td>" + esc(r.customer_name) + "<div class='muted'>" + esc(r.customer_email) + "</div></td>"
+          + "<td>" + esc(r.class_name) + "</td>"
+          + "<td>" + formatDate(r.original_date) + "</td>"
+          + "<td>" + formatDate(r.new_date) + (r.reason ? "<div class='muted'>Reason: " + esc(r.reason) + "</div>" : "") + "</td>"
+          + "<td>" + chip(r.status) + "</td>"
+          + "<td>" + decision + "</td></tr>";
+      }).join("");
+      document.getElementById("resched-empty").hidden = rows.length > 0;
+      Array.prototype.forEach.call(tb.querySelectorAll("button"), function (btn) {
+        btn.addEventListener("click", function () {
+          decide(btn.getAttribute("data-id"), btn.classList.contains("btn-approve") ? "approve" : "reject",
+                 btn.getAttribute("data-new-date"));
+        });
+      });
+    });
+  }
+
+  function decide(id, decision, newDate) {
+    fetch("/api/reschedule-requests/" + id + "/decide", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ decision: decision, new_date: newDate })
+    }).then(function () {
+      loadReschedules();
+      loadBookings();
+    });
+  }
+
+  function loadRsvps() {
+    fetch("/api/rsvps").then(function (r) { return r.json(); }).then(function (rows) {
+      var tb = document.querySelector("#rsvp-table tbody");
+      tb.innerHTML = rows.map(function (r) {
+        return "<tr><td>" + esc(r.customer_name) + "</td>"
+          + "<td>" + chip(r.attending ? "yes" : "no") + "</td>"
+          + "<td>" + esc(r.note || "—") + "</td>"
+          + "<td class='muted'>" + esc(r.created_at) + "</td></tr>";
+      }).join("");
+      document.getElementById("rsvp-empty").hidden = rows.length > 0;
+    });
+  }
+
+  loadBookings();
+  loadReschedules();
+  loadRsvps();
+})();
+</script>
+</body>
+</html>

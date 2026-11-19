@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reschedule Request Helper — Customer</title>
+<style>
+  :root {
+    --ink: #1f2a37; --muted: #5b6b7b; --accent: #1e6f5c; --accent-soft: #e7f3ef;
+    --line: #dde4ea; --bg: #f6f8fa; --card: #ffffff; --danger: #a33a3a;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: var(--bg); color: var(--ink); line-height: 1.55; }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 24px 16px 48px; }
+  header.app-header { margin-bottom: 24px; display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
+  header.app-header h1 { font-size: 1.5rem; font-weight: 600; }
+  header.app-header p { color: var(--muted); font-size: 0.95rem; margin-top: 4px; }
+  .admin-link { font-size: 0.88rem; color: var(--accent); text-decoration: none; font-weight: 600; white-space: nowrap; }
+  section.card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 20px; margin-bottom: 20px; }
+  .step-tag { display: inline-block; background: var(--accent-soft); color: var(--accent); font-size: 0.75rem; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; padding: 3px 10px; border-radius: 999px; margin-bottom: 10px; }
+  section.card h2 { font-size: 1.15rem; font-weight: 600; margin-bottom: 6px; }
+  section.card > p.purpose { color: var(--muted); font-size: 0.92rem; margin-bottom: 16px; }
+  .select-row { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
+  .select-row label { font-size: 0.9rem; font-weight: 600; }
+  select, input[type="date"], input[type="text"], textarea {
+    padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px;
+    font-size: 1rem; font-family: inherit; color: var(--ink); background: #fff; width: 100%; max-width: 420px;
+  }
+  textarea { max-width: 100%; resize: vertical; }
+  select:focus, input:focus, textarea:focus { outline: 2px solid var(--accent); outline-offset: 1px; border-color: var(--accent); }
+  .details-list { list-style: none; }
+  .details-list li { display: flex; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--line); font-size: 0.95rem; }
+  .details-list li:last-child { border-bottom: none; }
+  .details-list .label { color: var(--muted); flex-shrink: 0; }
+  .details-list .value { font-weight: 500; text-align: right; }
+  .date-note { background: var(--accent-soft); border-left: 3px solid var(--accent); padding: 10px 14px; border-radius: 6px; font-size: 0.92rem; margin-bottom: 14px; }
+  .btn { display: inline-block; border: none; border-radius: 8px; padding: 10px 20px; font-size: 0.95rem; font-weight: 600; font-family: inherit; cursor: pointer; }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-primary:hover { background: #175a4a; }
+  .btn-primary:disabled { background: #9db8b0; cursor: not-allowed; }
+  .btn-secondary { background: #fff; color: var(--ink); border: 1px solid var(--line); }
+  .btn-secondary:hover { border-color: var(--muted); }
+  .feedback { margin-left: 12px; font-size: 0.88rem; font-weight: 600; }
+  .feedback.ok { color: var(--accent); }
+  .feedback.err { color: var(--danger); }
+  .status-chip { display: inline-block; font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; padding: 2px 8px; border-radius: 999px; }
+  .chip-confirmed { background: var(--accent-soft); color: var(--accent); }
+  .chip-rescheduled { background: #fdf3e2; color: #8a5a12; }
+  @media (max-width: 480px) {
+    .wrap { padding: 16px 12px 40px; }
+    section.card { padding: 16px; }
+    .details-list li { flex-direction: column; gap: 2px; }
+    .details-list .value { text-align: left; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="app-header">
+    <div>
+      <h1>Reschedule Request Helper</h1>
+      <p>Select your registered class, confirm your attendance (RSVP), or request a new date. Your submission is saved to the training provider's system.</p>
+    </div>
+    <a class="admin-link" href="/admin.html">Provider admin →</a>
+  </header>
+
+  <!-- Step 1: Select registration -->
+  <section class="card" id="section-current">
+    <span class="step-tag">Step 1 · Your Booking</span>
+    <h2>Current Class Details</h2>
+    <p class="purpose">Select your name to load your registered class and date.</p>
+    <div class="select-row">
+      <label for="customer-select">Your name</label>
+      <select id="customer-select"></select>
+    </div>
+    <ul class="details-list">
+      <li><span class="label">Class name</span><span class="value" id="d-class">Loading…</span></li>
+      <li><span class="label">Registered date</span><span class="value" id="d-date">Loading…</span></li>
+      <li><span class="label">Location</span><span class="value" id="d-location">Loading…</span></li>
+      <li><span class="label">Email</span><span class="value" id="d-email">Loading…</span></li>
+      <li><span class="label">Booking status</span><span class="value" id="d-status">Loading…</span></li>
+    </ul>
+  </section>
+
+  <!-- Step 2: RSVP -->
+  <section class="card" id="section-rsvp">
+    <span class="step-tag">Step 2 · Confirm Attendance</span>
+    <h2>RSVP</h2>
+    <p class="purpose">Let the provider know whether you will attend on the current date.</p>
+    <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:14px;">
+      <button class="btn btn-primary" id="rsvp-yes">I will attend</button>
+      <button class="btn btn-secondary" id="rsvp-no">I cannot attend</button>
+    </div>
+    <div class="select-row">
+      <label for="rsvp-note">Note to provider (optional)</label>
+      <textarea id="rsvp-note" rows="2" placeholder="e.g. Attending with a colleague"></textarea>
+    </div>
+    <span class="feedback" id="rsvp-feedback"></span>
+  </section>
+
+  <!-- Step 3: Reschedule -->
+  <section class="card" id="section-pick">
+    <span class="step-tag">Step 3 · Reschedule</span>
+    <h2>Pick New Date</h2>
+    <p class="purpose">Choose a replacement date. The provider will review and approve your request.</p>
+    <div class="select-row">
+      <label for="new-date">New class date</label>
+      <input type="date" id="new-date">
+    </div>
+    <div class="select-row">
+      <label for="reschedule-reason">Reason (optional)</label>
+      <textarea id="reschedule-reason" rows="2" placeholder="e.g. Clash with a company audit that week"></textarea>
+    </div>
+    <div class="date-note" id="date-note">No new date selected yet.</div>
+    <button class="btn btn-primary" id="submit-reschedule" disabled>Submit reschedule request</button>
+    <span class="feedback" id="reschedule-feedback"></span>
+  </section>
+
+</div>
+
+<script>
+(function () {
+  var months = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+  var days = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+  function formatDate(iso) {
+    var p = iso.split("-");
+    var d = new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2]));
+    return days[d.getDay()] + ", " + d.getDate() + " " + months[d.getMonth()] + " " + d.getFullYear();
+  }
+
+  var bookings = [];
+  var customerSelect = document.getElementById("customer-select");
+  var input = document.getElementById("new-date");
+  var note = document.getElementById("date-note");
+  var submitBtn = document.getElementById("submit-reschedule");
+  var rsvpFeedback = document.getElementById("rsvp-feedback");
+  var reschedFeedback = document.getElementById("reschedule-feedback");
+  var dClass = document.getElementById("d-class"), dDate = document.getElementById("d-date"),
+      dLocation = document.getElementById("d-location"), dEmail = document.getElementById("d-email"),
+      dStatus = document.getElementById("d-status");
+
+  function current() { return bookings[customerSelect.selectedIndex]; }
+
+  function render() {
+    var b = current();
+    if (!b) return;
+    dClass.textContent = b.class_name;
+    dDate.textContent = formatDate(b.class_date);
+    dLocation.textContent = b.location;
+    dEmail.textContent = b.customer_email;
+    dStatus.innerHTML = '<span class="status-chip chip-' + b.status + '">' + b.status + '</span>';
+  }
+
+  function load() {
+    fetch("/api/bookings").then(function (r) { return r.json(); }).then(function (rows) {
+      bookings = rows;
+      customerSelect.innerHTML = "";
+      rows.forEach(function (b, i) {
+        var opt = document.createElement("option");
+        opt.value = String(b.id);
+        opt.textContent = b.customer_name;
+        customerSelect.appendChild(opt);
+      });
+      render();
+    }).catch(function () {
+      dClass.textContent = "Could not load bookings — is the server running?";
+    });
+  }
+
+  customerSelect.addEventListener("change", render);
+  input.addEventListener("change", updateNote);
+  input.addEventListener("input", updateNote);
+
+  function updateNote() {
+    if (input.value) {
+      note.textContent = "New date chosen: " + formatDate(input.value) + ". Submitting saves your request for the provider to approve.";
+      submitBtn.disabled = false;
+    } else {
+      note.textContent = "No new date selected yet.";
+      submitBtn.disabled = true;
+    }
+    reschedFeedback.textContent = "";
+    reschedFeedback.className = "feedback";
+  }
+
+  function bookingId() { return current() && current().id; }
+
+  document.getElementById("rsvp-yes").addEventListener("click", function () { sendRsvp(true); });
+  document.getElementById("rsvp-no").addEventListener("click", function () { sendRsvp(false); });
+
+  function sendRsvp(attending) {
+    var id = bookingId();
+    if (!id) return;
+    fetch("/api/bookings/" + id + "/rsvp", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ attending: attending, note: document.getElementById("rsvp-note").value })
+    }).then(function (r) { return r.json(); }).then(function (out) {
+      if (out.ok) {
+        rsvpFeedback.textContent = attending ? "✓ RSVP saved — see you on the class date!" : "✓ RSVP saved — the provider has been notified you cannot attend.";
+        rsvpFeedback.className = "feedback ok";
+      } else {
+        rsvpFeedback.textContent = "Save failed: " + (out.error || "unknown error");
+        rsvpFeedback.className = "feedback err";
+      }
+    }).catch(function () {
+      rsvpFeedback.textContent = "Save failed — server unreachable.";
+      rsvpFeedback.className = "feedback err";
+    });
+  }
+
+  submitBtn.addEventListener("click", function () {
+    var id = bookingId();
+    if (!id || !input.value) return;
+    fetch("/api/bookings/" + id + "/reschedule", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        new_date: input.value,
+        reason: document.getElementById("reschedule-reason").value
+      })
+    }).then(function (r) { return r.json(); }).then(function (out) {
+      if (out.ok) {
+        reschedFeedback.textContent = "✓ Request submitted — the provider will review it.";
+        reschedFeedback.className = "feedback ok";
+        submitBtn.disabled = true;
+        input.value = "";
+        updateNote();
+      } else {
+        reschedFeedback.textContent = "Submit failed: " + (out.error || "unknown error");
+        reschedFeedback.className = "feedback err";
+      }
+    }).catch(function () {
+      reschedFeedback.textContent = "Submit failed — server unreachable.";
+      reschedFeedback.className = "feedback err";
+    });
+  });
+
+  load();
+})();
+</script>
+</body>
+</html>
